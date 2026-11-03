@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LAST LIGHT: ISLAND</title>
+<style>
+:root{--panel:rgba(8,18,22,.82);--line:rgba(205,232,222,.2);--mint:#b7e6ce;--gold:#f3cb7b}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071216;color:#edf5ee;font-family:Inter,system-ui,Segoe UI,sans-serif}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+#hud{position:fixed;inset:0;pointer-events:none;padding:18px;display:flex;flex-direction:column;justify-content:space-between}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.brand,.status,.hint,.panel{background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(10px);box-shadow:0 10px 35px #0005}
+.brand{padding:12px 15px;border-radius:12px}.brand strong{letter-spacing:.18em;font-size:14px}.brand small{display:block;color:#9db6aa;font-size:10px;letter-spacing:.22em;margin-top:4px}
+.status{padding:10px 12px;border-radius:12px;min-width:210px}.stat{display:grid;grid-template-columns:54px 1fr 30px;gap:8px;align-items:center;font-size:11px;margin:5px 0;color:#c5d8ce}.track{height:6px;background:#ffffff19;border-radius:10px;overflow:hidden}.fill{height:100%;width:100%;background:#b8dfaa;transition:width .2s}.fill.thirst{background:#83c9df}.fill.energy{background:#e6c47e}.fill.health{background:#d77d73}
+.bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}.hint{padding:10px 13px;border-radius:10px;font-size:12px;color:#d4e2d8;max-width:520px}.hint b{color:var(--gold)}.time{font-size:11px;color:#b9cbbf;margin-top:5px}
+#prompt{position:fixed;left:50%;top:68%;transform:translate(-50%,-50%);padding:10px 14px;background:#071216dc;border:1px solid #ffffff35;border-radius:9px;font-size:13px;display:none;pointer-events:none}
+#crosshair{position:fixed;left:50%;top:50%;width:8px;height:8px;transform:translate(-50%,-50%);pointer-events:none;opacity:.8}
+#crosshair:before,#crosshair:after{content:"";position:absolute;background:#f2f4e9;border-radius:2px}#crosshair:before{width:8px;height:1px;top:3px}#crosshair:after{height:8px;width:1px;left:3px}
+#panelWrap{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#02090bc9;padding:16px;pointer-events:auto}
+.panel{width:min(560px,100%);max-height:88vh;overflow:auto;border-radius:16px;padding:22px}
+.panel h2{margin:0 0 5px;font-size:21px;letter-spacing:.12em}.sub{color:#a9beb2;font-size:12px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.item{padding:12px;border:1px solid var(--line);border-radius:10px;background:#ffffff08;font-size:13px}.item small{display:block;color:#a9beb2;margin-top:5px}
+button{border:1px solid #c4e5d0;background:#c4e5d0;color:#12221b;border-radius:9px;padding:10px 13px;font-weight:750;cursor:pointer}
+button.secondary{background:#ffffff0c;color:#eaf3ec;border-color:#ffffff30}button:disabled{opacity:.35;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+#toast{position:fixed;left:50%;top:16%;transform:translateX(-50%);background:#071216e8;border:1px solid #ffffff35;border-radius:9px;padding:10px 14px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none}
+#start{position:fixed;inset:0;background:linear-gradient(180deg,#07191dc9,#071216ef),url('') center/cover;display:flex;align-items:center;justify-content:center;padding:20px;z-index:5}
+.startbox{width:min(590px,100%);text-align:center}.eyebrow{font-size:11px;letter-spacing:.35em;color:#b4d6c4}.startbox h1{font-size:clamp(38px,8vw,76px);line-height:.95;letter-spacing:.08em;margin:15px 0 10px}.startbox h1 span{color:#b8d9b9}.startbox p{color:#b9c9c0;line-height:1.6;max-width:470px;margin:0 auto 22px}.startbox button{font-size:14px;padding:13px 25px;letter-spacing:.12em}.keys{font-size:11px;color:#82988d;margin-top:20px;line-height:1.8}
+@media(max-width:600px){#hud{padding:10px}.status{min-width:175px;padding:8px}.brand{padding:9px}.brand strong{font-size:11px}.hint{font-size:10px;max-width:75%}.bottom{align-items:flex-end}.grid{grid-template-columns:1fr}}
+
+#mobileControls{display:none;position:fixed;inset:0;pointer-events:none;z-index:4;touch-action:none}
+#stickBase{position:absolute;left:18px;bottom:22px;width:124px;height:124px;border-radius:50%;background:#07121688;border:2px solid #d7ead455;pointer-events:auto;touch-action:none}
+#stick{position:absolute;left:37px;top:37px;width:46px;height:46px;border-radius:50%;background:#c4e5d0bb;border:2px solid #e9fff0;box-shadow:0 3px 14px #0008}
+.touchBtns{position:absolute;right:15px;bottom:22px;display:grid;grid-template-columns:repeat(2,58px);gap:9px;pointer-events:auto}
+.touchBtns button{width:58px;height:58px;border-radius:50%;padding:0;background:#071216df;color:#eff8f0;border:1px solid #c4e5d088;font-size:10px;touch-action:none;box-shadow:0 3px 12px #0007}
+.touchBtns button.main{background:#c4e5d0;color:#12221b;font-size:12px}
+#lookTip{position:absolute;right:12px;bottom:158px;color:#eaf3ecaa;font-size:10px;text-shadow:0 1px 4px #000;max-width:170px;text-align:right}
+@media (pointer:coarse),(max-width:800px){
+ #mobileControls{display:block}
+ #hud{padding:9px 9px 165px}
+ .status{min-width:164px;padding:7px}
+ .brand{padding:8px}.brand strong{font-size:11px}.brand small{font-size:8px}
+ .bottom{align-items:flex-start;flex-direction:column;gap:5px}
+ .hint{font-size:10px;padding:7px 9px}
+ .hint:last-child{max-width:78%}
+ #crosshair{opacity:.55}
+}
+
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="start"><div class="startbox">
+<div class="eyebrow">A SURVIVAL STORY</div><h1>LAST LIGHT<br><span>ISLAND</span></h1>
+<p>Ты очнулся на незнакомом острове. Собирай ресурсы, следи за состоянием и построй укрытие до наступления ночи.</p>
+<button id="begin">НАЧАТЬ ВЫЖИВАНИЕ</button>
+<div class="keys">WASD — движение · мышь — обзор · E — взаимодействие<br>I — инвентарь · C — создание предметов · Esc — освободить курсор</div>
+</div></div>
+<div id="hud">
+ <div class="top">
+  <div class="brand"><strong>LAST LIGHT</strong><small>ISLAND / SURVIVAL PROTOTYPE</small></div>
+  <div class="status">
+   <div class="stat"><span>ЗДОРОВЬЕ</span><div class="track"><div id="health" class="fill health"></div></div><span id="healthN">100</span></div>
+   <div class="stat"><span>ГОЛОД</span><div class="track"><div id="hunger" class="fill"></div></div><span id="hungerN">100</span></div>
+   <div class="stat"><span>ЖАЖДА</span><div class="track"><div id="thirst" class="fill thirst"></div></div><span id="thirstN">100</span></div>
+   <div class="stat"><span>ЭНЕРГИЯ</span><div class="track"><div id="energy" class="fill energy"></div></div><span id="energyN">100</span></div>
+  </div>
+ </div>
+ <div class="bottom">
+  <div class="hint"><b>ЦЕЛЬ:</b> собери материалы и создай костёр и укрытие.<div class="time" id="clock">ДЕНЬ 1 · 08:00</div></div>
+  <div class="hint" id="resourceLine">РЕСУРСЫ · ДЕРЕВО 0 / КАМЕНЬ 0 / ЯГОДЫ 0</div>
+ </div>
+</div>
+
+<div id="mobileControls">
+ <div id="stickBase"><div id="stick"></div></div>
+ <div id="lookTip">Проводи пальцем по правой части экрана — обзор</div>
+ <div class="touchBtns">
+  <button class="main" id="touchUse">СБОР<br>E</button>
+  <button id="touchRun">БЕГ</button>
+  <button id="touchBag">СУМКА</button>
+  <button id="touchCraft">КРАФТ</button>
+ </div>
+</div>
+
+<div id="crosshair"></div><div id="prompt"></div><div id="toast"></div>
+<div id="panelWrap"><div class="panel" id="panel"></div></div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=Math.min(devicePixelRatio||1,1.5);
+function resize(){W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+const MAP=36, world=Array.from({length:MAP},()=>Array(MAP).fill(0));
+for(let y=0;y<MAP;y++)for(let x=0;x<MAP;x++){let d=Math.hypot(x-18,y-18);if(d>15.7)world[y][x]=2;else if(d>13.9)world[y][x]=3;}
+const player={x:18,y:18,angle:-Math.PI/2,pitch:0};
+const keys={};let started=false,paused=false,dayTime=8*60,day=1,last=performance.now(),toastTimer;
+const stats={health:100,hunger:100,thirst:100,energy:100};
+const inv={wood:0,stone:0,berries:0,fiber:0,coconut:0};
+let shelter=false,campfire=false;
+const nodes=[];
+function addNode(type,x,y){nodes.push({type,x,y,alive:true})}
+for(let y=3;y<33;y++)for(let x=3;x<33;x++){
+ if(world[y][x]!==0)continue;
+ let r=Math.random();
+ if(r<.075)addNode('palm',x+.2+Math.random()*.6,y+.2+Math.random()*.6);
+ else if(r<.105)addNode('rock',x+.2+Math.random()*.6,y+.2+Math.random()*.6);
+ else if(r<.13)addNode('bush',x+.2+Math.random()*.6,y+.2+Math.random()*.6);
+ else if(r<.145)addNode('drift',x+.2+Math.random()*.6,y+.2+Math.random()*.6);
+}
+function blocked(x,y){let gx=Math.floor(x),gy=Math.floor(y);return gx<0||gy<0||gx>=MAP||gy>=MAP||world[gy][gx]!==0||nodes.some(n=>n.alive&&(n.type==='palm'||n.type==='rock')&&Math.hypot(n.x-x,n.y-y)<.42)}
+function notify(s){let el=document.getElementById('toast');el.textContent=s;el.style.opacity=1;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.opacity=0,1800)}
+function nearest(){let best=null,dist=2.15;for(const n of nodes){if(!n.alive)continue;let d=Math.hypot(n.x-player.x,n.y-player.y);let a=Math.atan2(n.y-player.y,n.x-player.x)-player.angle;a=Math.atan2(Math.sin(a),Math.cos(a));if(d<dist&&Math.abs(a)<.8){best=n;dist=d}}return best}
+function interact(){let n=nearest();if(!n){notify('Здесь пока нечего собирать');return}
+ n.alive=false;
+ if(n.type==='palm'){inv.wood+=2;inv.fiber+=1;notify('Собрано: древесина ×2, волокно ×1')}
+ if(n.type==='rock'){inv.stone+=2;notify('Собрано: камень ×2')}
+ if(n.type==='bush'){inv.berries+=2;notify('Собрано: ягоды ×2')}
+ if(n.type==='drift'){inv.wood+=1;notify('Найдена коряга: древесина ×1')}
+ updateHud();
+}
+function updateHud(){
+ for(const k of ['health','hunger','thirst','energy']){document.getElementById(k).style.width=stats[k]+'%';document.getElementById(k+'N').textContent=Math.round(stats[k])}
+ document.getElementById('resourceLine').textContent=`РЕСУРСЫ · ДЕРЕВО ${inv.wood} / КАМЕНЬ ${inv.stone} / ЯГОДЫ ${inv.berries} / ВОЛОКНО ${inv.fiber}`;
+}
+function openPanel(mode){
+ paused=true;document.exitPointerLock?.();
+ const wrap=document.getElementById('panelWrap'),p=document.getElementById('panel');wrap.style.display='flex';
+ if(mode==='inventory'){
+ p.innerHTML=`<h2>ИНВЕНТАРЬ</h2><div class="sub">То, что удалось найти на острове.</div><div class="grid">${[['Древесина',inv.wood],['Камень',inv.stone],['Ягоды',inv.berries],['Волокно',inv.fiber],['Кокосы',inv.coconut]].map(a=>`<div class="item">${a[0]}<small>Количество: ${a[1]}</small></div>`).join('')}</div><div class="actions"><button class="secondary" id="eat">Съесть ягоды (−1)</button><button class="secondary" id="drink">Выпить кокос (−1)</button><button id="close">ЗАКРЫТЬ</button></div>`;
+ document.getElementById('eat').disabled=inv.berries<1;document.getElementById('drink').disabled=inv.coconut<1;
+ document.getElementById('eat').onclick=()=>{if(inv.berries>0){inv.berries--;stats.hunger=Math.min(100,stats.hunger+18);notify('Ты съел ягоды');updateHud();openPanel('inventory')}};
+ document.getElementById('drink').onclick=()=>{if(inv.coconut>0){inv.coconut--;stats.thirst=Math.min(100,stats.thirst+30);notify('Жажда немного утолена');updateHud();openPanel('inventory')}};
+ }else{
+ p.innerHTML=`<h2>СОЗДАНИЕ ПРЕДМЕТОВ</h2><div class="sub">Простые вещи, которые помогут пережить ночь.</div>
+ <div class="item"><b>Костёр</b><small>Дерево ×4 · Камень ×3 · Даёт безопасное место для отдыха.</small><div class="actions"><button id="fire" ${campfire||inv.wood<4||inv.stone<3?'disabled':''}>${campfire?'УЖЕ СОЗДАН':'СОЗДАТЬ'}</button></div></div>
+ <div class="item" style="margin-top:10px"><b>Лёгкое укрытие</b><small>Дерево ×6 · Волокно ×4 · Помогает восстановить силы.</small><div class="actions"><button id="hut" ${shelter||inv.wood<6||inv.fiber<4?'disabled':''}>${shelter?'УЖЕ СОЗДАНО':'СОЗДАТЬ'}</button></div></div>
+ <div class="actions"><button class="secondary" id="close">ЗАКРЫТЬ</button></div>`;
+ document.getElementById('fire').onclick=()=>{inv.wood-=4;inv.stone-=3;campfire=true;notify('Костёр создан!');updateHud();openPanel('craft')};
+ document.getElementById('hut').onclick=()=>{inv.wood-=6;inv.fiber-=4;shelter=true;notify('Укрытие готово!');updateHud();openPanel('craft')};
+ }
+ document.getElementById('close').onclick=closePanel;
+}
+function closePanel(){document.getElementById('panelWrap').style.display='none';paused=false}
+function castRay(angle){
+ let sin=Math.sin(angle),cos=Math.cos(angle),dist=0,hit=0,hitX=0,hitY=0;
+ for(let i=0;i<500;i++){dist+=.035;let x=player.x+cos*dist,y=player.y+sin*dist;let gx=Math.floor(x),gy=Math.floor(y);if(gx<0||gy<0||gx>=MAP||gy>=MAP){hit=2;hitX=x;hitY=y;break}if(world[gy][gx]){hit=world[gy][gx];hitX=x;hitY=y;break}}
+ return {dist,hit,hitX,hitY};
+}
+function project(x,y){
+ let dx=x-player.x,dy=y-player.y,dist=Math.hypot(dx,dy),angle=Math.atan2(dy,dx)-player.angle;
+ angle=Math.atan2(Math.sin(angle),Math.cos(angle));
+ let fov=Math.PI/2.7;if(Math.abs(angle)>fov/2+.3)return null;
+ let corrected=dist*Math.cos(angle);if(corrected<.1)return null;
+ return {x:W/2+Math.tan(angle)/(Math.tan(fov/2))*(W/2),y:H*.51+player.pitch,size:Math.min(H*1.5,H/(corrected*.85)),dist,corrected};
+}
+function drawSky(){
+ let night=(Math.cos((dayTime/1440)*Math.PI*2)+1)/2;
+ let g=ctx.createLinearGradient(0,0,0,H*.55);g.addColorStop(0,night>.55?'#071522':'#79aeb5');g.addColorStop(1,night>.55?'#253c46':'#d5c49a');ctx.fillStyle=g;ctx.fillRect(0,0,W,H*.55);
+ ctx.fillStyle=night>.55?'#d8e4d7':'#fff0c0';ctx.globalAlpha=night>.55?.65:.9;ctx.beginPath();ctx.arc(W*.78,H*.18,night>.55?15:24,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+ let ground=ctx.createLinearGradient(0,H*.48,0,H);ground.addColorStop(0,night>.55?'#253a36':'#8b9b68');ground.addColorStop(1,night>.55?'#101e1b':'#334f39');ctx.fillStyle=ground;ctx.fillRect(0,H*.48,W,H*.52);
+}
+function drawWorld(){
+ const fov=Math.PI/2.7,cols=Math.max(180,Math.floor(W/3)),zbuf=new Array(cols);
+ for(let i=0;i<cols;i++){
+  let a=player.angle+(i/cols-.5)*fov,r=castRay(a),d=r.dist*Math.cos(a-player.angle);zbuf[i]=d;
+  let wallH=Math.min(H*1.8,H/(d*.78)),top=H*.51+player.pitch-wallH/2;
+  let shade=Math.max(.22,1-d/18);let side=Math.abs((r.hitX-Math.floor(r.hitX))-.5)<Math.abs((r.hitY-Math.floor(r.hitY))-.5);
+  ctx.fillStyle=r.hit===3?`rgb(${Math.floor(83*shade)},${Math.floor(99*shade)},${Math.floor(78*shade)})`:`rgb(${Math.floor(91*shade)},${Math.floor(104*shade)},${Math.floor(82*shade)})`;
+  if(side)ctx.fillStyle=`rgb(${Math.floor(70*shade)},${Math.floor(83*shade)},${Math.floor(69*shade)})`;
+  ctx.fillRect(i*W/cols,top,W/cols+1,wallH);
+  ctx.fillStyle=`rgba(0,0,0,${Math.min(.65,d/25)})`;ctx.fillRect(i*W/cols,top+wallH,W/cols+1,H-(top+wallH));
+ }
+ let sprites=nodes.filter(n=>n.alive).map(n=>({n,p:project(n.x,n.y)})).filter(o=>o.p).sort((a,b)=>b.p.dist-a.p.dist);
+ for(const o of sprites){let {n,p}=o,idx=Math.max(0,Math.min(cols-1,Math.floor(p.x/W*cols)));if(p.corrected>zbuf[idx]+.4)continue;
+ let s=p.size*.48,x=p.x,y=H*.51+player.pitch;
+ ctx.save();ctx.translate(x,y);
+ if(n.type==='palm'){
+  ctx.fillStyle='#604b35';ctx.fillRect(-s*.09,-s*.12,s*.18,s*.72);
+  ctx.fillStyle='#2c6748';for(let j=0;j<6;j++){ctx.save();ctx.rotate(j*Math.PI/3);ctx.beginPath();ctx.ellipse(0,-s*.34,s*.12,s*.42,0,0,Math.PI*2);ctx.fill();ctx.restore()}
+  ctx.fillStyle='#4a8b54';ctx.beginPath();ctx.arc(0,-s*.15,s*.17,0,Math.PI*2);ctx.fill();
+ }else if(n.type==='rock'){
+  ctx.fillStyle='#68766f';ctx.beginPath();ctx.moveTo(-s*.45,s*.25);ctx.lineTo(-s*.34,-s*.12);ctx.lineTo(-s*.08,-s*.36);ctx.lineTo(s*.3,-s*.22);ctx.lineTo(s*.46,s*.25);ctx.closePath();ctx.fill();
+ }else if(n.type==='bush'){
+  ctx.fillStyle='#315f3d';for(let j=0;j<5;j++){ctx.beginPath();ctx.arc((j-2)*s*.13,-s*.02,s*.19,0,Math.PI*2);ctx.fill()}
+  ctx.fillStyle='#c94f50';for(let j=0;j<4;j++){ctx.beginPath();ctx.arc((j-1.5)*s*.13,-s*.05+(j%2)*s*.08,s*.035,0,Math.PI*2);ctx.fill()}
+ }else{
+  ctx.fillStyle='#8b7655';ctx.save();ctx.rotate(-.15);ctx.fillRect(-s*.4,0,s*.8,s*.13);ctx.restore();
+ }
+ ctx.restore();
+ }
+ // nearby interactable marker
+ const n=nearest();let prompt=document.getElementById('prompt');if(n){prompt.style.display='block';prompt.textContent=`[E] Собрать: ${{palm:'пальма',rock:'камень',bush:'ягодный куст',drift:'коряга'}[n.type]}`}else prompt.style.display='none';
+}
+function frame(now){
+ let dt=Math.min((now-last)/1000,.05);last=now;
+ if(started&&!paused){
+  let speed=keys.ShiftLeft||keys.ShiftRight?3.5:2.25;if(stats.energy<10)speed=1.5;
+  let move=(keys.KeyW?1:0)-(keys.KeyS?1:0),strafe=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+  let len=Math.hypot(move,strafe)||1;move/=len;strafe/=len;
+  let nx=player.x+(Math.cos(player.angle)*move-Math.sin(player.angle)*strafe)*speed*dt;
+  let ny=player.y+(Math.sin(player.angle)*move+Math.cos(player.angle)*strafe)*speed*dt;
+  if(!blocked(nx,player.y))player.x=nx;if(!blocked(player.x,ny))player.y=ny;
+  if(move||strafe){stats.energy=Math.max(0,stats.energy-(keys.ShiftLeft||keys.ShiftRight?8:2)*dt)}else stats.energy=Math.min(100,stats.energy+4*dt);
+  dayTime+=dt*2.2;if(dayTime>=1440){dayTime-=1440;day++}
+  stats.hunger=Math.max(0,stats.hunger-.11*dt);stats.thirst=Math.max(0,stats.thirst-.18*dt);
+  if(stats.hunger<=0||stats.thirst<=0)stats.health=Math.max(0,stats.health-.8*dt);
+  if(stats.health<=0){paused=true;document.getElementById('panelWrap').style.display='flex';document.getElementById('panel').innerHTML='<h2>ПУТЕШЕСТВИЕ ОКОНЧЕНО</h2><p class="sub">На этот раз остров оказался сильнее. Попробуй ещё раз.</p><div class="actions"><button id="restart">НАЧАТЬ ЗАНОВО</button></div>';document.getElementById('restart').onclick=()=>location.reload()}
+  updateHud();let hh=Math.floor(dayTime/60),mm=Math.floor(dayTime%60);document.getElementById('clock').textContent=`ДЕНЬ ${day} · ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+ }
+ drawSky();drawWorld();
+ let night=Math.max(0,(Math.cos((dayTime/1440)*Math.PI*2)+1)/2);ctx.fillStyle=`rgba(3,10,22,${night*.48})`;ctx.fillRect(0,0,W,H);
+ requestAnimationFrame(frame);
+}
+document.getElementById('begin').onclick=()=>{started=true;document.getElementById('start').style.display='none';canvas.requestPointerLock?.();notify('Выживание началось. Осмотрись вокруг.')};
+document.addEventListener('pointerlockchange',()=>{});
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas&&!paused){player.angle+=e.movementX*.0025;player.pitch=Math.max(-80,Math.min(80,player.pitch-e.movementY*.18))}});
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(!started)return;if(e.code==='KeyE'&&!paused)interact();if(e.code==='KeyI'&&!paused)openPanel('inventory');if(e.code==='KeyC'&&!paused)openPanel('craft');if(e.code==='Escape'&&paused)closePanel();if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault()});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+document.getElementById('panelWrap').addEventListener('click',e=>{if(e.target.id==='panelWrap')closePanel()});
+
+// Mobile touch controls: virtual joystick, swipe camera and action buttons.
+const touchMode = matchMedia('(pointer:coarse)').matches || innerWidth < 800;
+const stickBase = document.getElementById('stickBase');
+const stick = document.getElementById('stick');
+let stickPointer = null, lookPointer = null, lookX = 0, lookY = 0;
+
+function applyStick(dx,dy){
+ const max=39, length=Math.hypot(dx,dy), scale=length>max?max/length:1;
+ dx*=scale; dy*=scale;
+ stick.style.transform=`translate(${dx}px,${dy}px)`;
+ const dead=.22;
+ keys.KeyW=dy/max < -dead; keys.KeyS=dy/max > dead;
+ keys.KeyA=dx/max < -dead; keys.KeyD=dx/max > dead;
+}
+function resetStick(){
+ stick.style.transform='translate(0px,0px)';
+ keys.KeyW=keys.KeyA=keys.KeyS=keys.KeyD=false;
+ stickPointer=null;
+}
+stickBase.addEventListener('pointerdown',e=>{
+ e.preventDefault(); stickPointer=e.pointerId; stickBase.setPointerCapture(e.pointerId);
+ const r=stickBase.getBoundingClientRect();
+ applyStick(e.clientX-r.left-r.width/2,e.clientY-r.top-r.height/2);
+});
+stickBase.addEventListener('pointermove',e=>{
+ if(e.pointerId!==stickPointer)return;
+ const r=stickBase.getBoundingClientRect();
+ applyStick(e.clientX-r.left-r.width/2,e.clientY-r.top-r.height/2);
+});
+stickBase.addEventListener('pointerup',e=>{if(e.pointerId===stickPointer)resetStick()});
+stickBase.addEventListener('pointercancel',resetStick);
+
+// Drag on the open right-hand side to look around.
+canvas.addEventListener('pointerdown',e=>{
+ if(!touchMode || e.pointerType!=='touch' || e.clientX<W*.42)return;
+ lookPointer=e.pointerId; lookX=e.clientX; lookY=e.clientY;
+});
+canvas.addEventListener('pointermove',e=>{
+ if(!touchMode || e.pointerId!==lookPointer || paused || !started)return;
+ const dx=e.clientX-lookX, dy=e.clientY-lookY;
+ lookX=e.clientX; lookY=e.clientY;
+ player.angle+=dx*.006;
+ player.pitch=Math.max(-80,Math.min(80,player.pitch-dy*.32));
+});
+function endLook(e){if(e.pointerId===lookPointer)lookPointer=null}
+canvas.addEventListener('pointerup',endLook);
+canvas.addEventListener('pointercancel',endLook);
+
+function touchAction(id,fn){
+ document.getElementById(id).addEventListener('pointerdown',e=>{
+  e.preventDefault(); e.stopPropagation(); if(started&&!paused)fn();
+ });
+}
+touchAction('touchUse',interact);
+touchAction('touchBag',()=>openPanel('inventory'));
+touchAction('touchCraft',()=>openPanel('craft'));
+const runButton=document.getElementById('touchRun');
+function stopTouchRun(){
+ keys.ShiftLeft=false; runButton.style.background=''; runButton.style.color='';
+}
+runButton.addEventListener('pointerdown',e=>{
+ e.preventDefault(); e.stopPropagation();
+ if(started&&!paused){keys.ShiftLeft=true;runButton.style.background='#c4e5d0';runButton.style.color='#12221b'}
+});
+runButton.addEventListener('pointerup',stopTouchRun);
+runButton.addEventListener('pointercancel',stopTouchRun);
+runButton.addEventListener('pointerleave',stopTouchRun);
+
+updateHud();requestAnimationFrame(frame);
+})();
+</script>
+</body></html>
